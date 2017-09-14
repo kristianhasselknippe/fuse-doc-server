@@ -37,12 +37,26 @@ struct Comment {
     full: String,
 }
 
+fn iter_dir(path: &Path, f: &mut FnMut(&Path)) {
+    if let Ok(dir) = read_dir(path) {
+        f(path);
+        for d in dir {
+            if let Ok(d) = d {
+                iter_dir(&d.path(), f);
+            }
+        }
+    }
+}
 
 fn main() {
+    let api_root = Path::new("resources\\api");
+
+    let mut paths = Vec::new();
+    iter_dir(api_root, &mut |p| {
+        paths.push(p.to_path_buf());
+    });
 
     loop {
-
-        //let input = "PageControl".to_lowercase();
         let mut input = String::new();
         io::stdin().read_line(&mut input).unwrap();
 
@@ -51,51 +65,20 @@ fn main() {
         let mut input = input.trim();
         println!("foo: {}", input);
 
-        let api_root = Path::new("resources\\api");
-
-
-        fn iter_dir(path: &Path, f: &mut FnMut(&Path)) {
-            if let Ok(dir) = read_dir(path) {
-                f(path);
-                for d in dir {
-                    if let Ok(d) = d {
-                        iter_dir(&d.path(), f);
-                    }
-                }
-            }
-        }
-
-        let mut result = None;
-        iter_dir(api_root, &mut |p| {
+        for p in &paths {
             let f_name = p.file_name().unwrap().to_str().unwrap();
             if f_name == input {
-                result = Some(p.to_path_buf());
-                //println!("We have found it: {:?}", &p);
+                let mut result = p.clone();
+                let mut content = String::new();
+                result.set_file_name(format!("{}.json", input));
+                let mut file = File::open(result).unwrap();
+
+                file.read_to_string(&mut content);
+
+                let res: Item = serde_json::from_str(&content).unwrap();
+
+                println!("{:?}", res);
             }
-        });
-
-
-        if let Some(result) = result {
-            println!("Buf: {:?}", &result);
-
-            let mut result = result;
-            let mut content = String::new();
-            result.set_file_name(format!("{}.json", input));
-            let mut file = File::open(result).unwrap();
-
-            file.read_to_string(&mut content);
-
-            //println!("{}", &content);
-
-
-            /*let mut buffer = String::new();
-            io::stdin().read_line(&mut buffer).unwrap();
-
-            println!("Read line: {}", buffer);*/
-
-            let res: Item = serde_json::from_str(&content).unwrap();
-
-            println!("{:?}", res);
         }
     }
 }
